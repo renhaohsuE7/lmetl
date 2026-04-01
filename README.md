@@ -14,34 +14,47 @@ DocxSource → LLMTransform (Ollama) → JsonExtractionSink + TxtFallbackSink
 
 ## Configuration
 
-所有萃取配置集中在 `configs/dig_info_geology.yaml`，包含模型參數、prompt 模板、schema 欄位定義。
+所有萃取配置集中在 YAML，包含模型參數、prompt 模板、schema 欄位定義。預設：`configs/<domain>.yaml`。
 
-**自訂 Genre**：在 YAML `lmetl.schemas.genres` 下新增區塊，設定 `extraction.genre` 後執行 sync_schemas：
+**自訂 Genre 範例**：假設要建立物理學文獻萃取，在 YAML `lmetl.schemas.genres` 下新增 `physics` 區塊：
 
 ```yaml
-schemas:
-  genres:
-    physics:
-      system_prompt_suffix: |
-        你具備物理學專業知識...
-      fields:
-        - name: equations
-          type: list[str]
-          description: 相關方程式
+# configs/physics_papers.yaml
+lmetl:
+  extraction:
+    genre: physics          # 指定使用 physics genre
+  schemas:
+    genres:
+      physics:
+        system_prompt_suffix: |
+          你具備物理學專業知識，擅長辨識方程式、實驗方法與物理量。
+        fields:
+          - name: equations
+            type: list[str]
+            description: 文中提及的重要方程式
+          - name: physical_quantities
+            type: list[str]
+            description: 關鍵物理量及其數值
+          - name: experiment_methods
+            type: list[str]
+            description: 實驗方法與裝置
 ```
 
-
+執行 `sync_schemas` 從 YAML 自動產生對應的 Pydantic model（`schemas/genres/physics.py`）：
 
 ```bash
-uv run python -m lmetl.tools.sync_schemas configs/dig_info_geology.yaml
-```
+# 產生 schema
+uv run python -m lmetl.tools.sync_schemas configs/physics_papers.yaml
 
+# 驗證 schema 是否與 YAML 同步（CI 可用）
+uv run python -m lmetl.tools.sync_schemas --check configs/physics_papers.yaml
+```
 
 詳細說明：[Usage Guide](docs/references/llm/usage-guide.md) | [YAML Config Guide](docs/references/llm/yaml-config-guide.md)
 
 ## Dependency: pwetl
 
-本專案作為 [pwetl](https://github.com/sw-willie-wu/pwetl) 的comsumer，使用其：
+本專案作為 [pwetl](https://github.com/sw-willie-wu/pwetl) 的consumer，使用其：
 
 - **Plugin 架構** — BaseSource / BaseTransform / BaseSink 抽象介面，lmetl 的 DocxSource、LLMTransform、JsonExtractionSink 皆繼承自 pwetl base classes
 - **YAML Config 驅動** — Pipeline 配置（sources、transform、sinks）遵循 pwetl YAML convention
