@@ -30,7 +30,7 @@ lmetl:
 
 - `endpoint` / `model` 支援環境變數覆寫（`${VAR:default}` 語法）
 - `parameters` 內的每個 key 都是 optional，未填就不傳，由 Ollama/vLLM 使用預設值
-- 不同模型建不同 YAML 檔（如 `dig_info_geology_qwen.yaml`），各帶最佳參數組合
+- 不同模型可複製 `base.yaml` 為 `base_qwen.yaml`，各帶最佳參數組合
 
 ### 2. Prompt 模板
 
@@ -96,7 +96,7 @@ lmetl:
             ge: 0.0
             le: 1.0
             default: 0.0
-        # ...完整欄位見 configs/dig_info_geology.yaml
+        # ...完整欄位見 configs/base.yaml
 
     genres:
       geology:
@@ -110,7 +110,7 @@ lmetl:
           - name: formations
             type: list[str]
             description: 地層名稱
-          # ...完整欄位見 configs/dig_info_geology.yaml
+          # ...完整欄位見 configs/base.yaml
 ```
 
 每個 field 的 `description` 有兩個用途（由 runtime 自動處理）：
@@ -155,10 +155,10 @@ YAML 已經是 source of truth，但 Pydantic model .py 仍有價值：
 
 ```bash
 # 從 YAML 產生/更新 Pydantic model 檔案
-uv run python -m lmetl.tools.sync_schemas configs/dig_info_geology.yaml
+uv run python -m lmetl.tools.sync_schemas configs/base.yaml
 
 # 只檢查是否同步（CI 用），不寫入檔案
-uv run python -m lmetl.tools.sync_schemas --check configs/dig_info_geology.yaml
+uv run python -m lmetl.tools.sync_schemas --check configs/base.yaml
 ```
 
 產出檔案：
@@ -171,32 +171,31 @@ uv run python -m lmetl.tools.sync_schemas --check configs/dig_info_geology.yaml
 
 ### 調整 prompt 措辭
 
-1. 編輯 `configs/dig_info_geology.yaml` 的 `prompts.system` 或 `prompts.user_template`
+1. 編輯 `configs/base.yaml` 的 `lmetl.prompts.system` 或 `lmetl.prompts.user_template`
 2. 重跑萃取（Docker volume mount 自動生效，不需 rebuild）
 
 ### 調整模型推理參數
 
-1. 編輯 `configs/dig_info_geology.yaml` 的 `llm.parameters`
+1. 編輯 `configs/base.yaml` 的 `lmetl.llm.parameters`
 2. 重跑萃取
 
 ### 新增 Genre
 
-1. 在 YAML 的 `schemas.genres` 下新增 section：
+1. 在 `configs/genres/` 新增 YAML 檔案：
    ```yaml
-   genres:
-     hydrology:
-       system_prompt_suffix: |
-         你同時具備水文地質專業知識...
-       fields:
-         - name: aquifer_type
-           type: str?
-           description: 含水層類型
-         - name: water_table_depth
-           type: str?
-           description: 地下水位深度
+   # configs/genres/hydrology.yaml
+   system_prompt_suffix: |
+     你同時具備水文地質專業知識...
+   fields:
+     - name: aquifer_type
+       type: str?
+       description: 含水層類型
+     - name: water_table_depth
+       type: str?
+       description: 地下水位深度
    ```
-2. 修改 `extraction.genre: hydrology`
-3. 執行 `uv run python -m lmetl.tools.sync_schemas configs/xxx.yaml` 產生 Pydantic model
+2. 修改 `configs/base.yaml` 的 `extraction.genre: hydrology`
+3. 執行 `uv run python -m lmetl.tools.sync_schemas configs/base.yaml` 產生 Pydantic model
 
 ### 新增 / 修改欄位
 
@@ -207,7 +206,7 @@ uv run python -m lmetl.tools.sync_schemas --check configs/dig_info_geology.yaml
 ### 為不同模型建立配置
 
 ```bash
-cp configs/dig_info_geology.yaml configs/dig_info_geology_qwen.yaml
+cp configs/base.yaml configs/base_qwen.yaml
 # 編輯 model, parameters, 可能也調 prompt
 ```
 
@@ -217,7 +216,8 @@ cp configs/dig_info_geology.yaml configs/dig_info_geology_qwen.yaml
 
 | 文件 | 說明 |
 |------|------|
-| `configs/dig_info_geology.yaml` | 主要 pipeline 配置（含完整 lmetl section） |
+| `configs/base.yaml` | 基礎配置（LLM + prompts + core schema + pipeline defaults） |
+| `configs/genres/*.yaml` | Genre 定義（fields + system_prompt_suffix） |
 | `docs/plans/project/architecture-questions.md` Q7 | 配置架構設計決定 |
 | `docs/plans/llm/yaml-config-migration.md` | 從 Phase 1 遷移的詳細實作計畫 |
 | `src/lmetl/utils/schema_loader.py` | YAML schema 讀取 + 動態產生（實作中） |

@@ -11,7 +11,7 @@ Phase 1 E2E 測試驗證萃取品質可行（2/2 chunks 成功，confidence 0.78
 ## 目標 YAML 結構
 
 ```yaml
-# configs/dig_info_geology.yaml — lmetl section
+# configs/base.yaml — lmetl section
 
 lmetl:
 
@@ -244,13 +244,13 @@ class LLMClient:
 
 ### Step 4: 更新 YAML config
 
-- 把現有 `configs/dig_info_geology.yaml` 的 `lmetl` section 擴充為完整結構
+- 把現有 `configs/base.yaml` 的 `lmetl` section 擴充為完整結構
 - 移除 `prompt_template_version`（改用 `prompts.version`）
 
 ### Step 5: CLI tool `sync_schemas`
 
 ```bash
-uv run python -m lmetl.tools.sync_schemas configs/dig_info_geology.yaml
+uv run python -m lmetl.tools.sync_schemas configs/base.yaml
 ```
 
 - 讀取 YAML `schemas` section
@@ -276,7 +276,7 @@ uv run python -m lmetl.tools.sync_schemas configs/dig_info_geology.yaml
 
 | 檔案 | 變更 |
 |------|------|
-| `configs/dig_info_geology.yaml` | 擴充 lmetl section（prompts + schemas） |
+| `configs/base.yaml` | 擴充 lmetl section（prompts + schemas） |
 | `src/lmetl/utils/schema_loader.py` | **新增** — YAML schema 讀取 + 動態產生 |
 | `src/lmetl/llm/prompts.py` | **重構** — 改為 YAML-driven |
 | `src/lmetl/llm/client.py` | **擴充** — 支援完整推理參數 |
@@ -292,6 +292,6 @@ uv run python -m lmetl.tools.sync_schemas configs/dig_info_geology.yaml
 
 1. `uv run pytest tests/ -v` — 全部通過
 2. YAML 中改 prompt 或新增 genre field → 不需改任何 Python code
-3. `uv run python -m lmetl.tools.sync_schemas --check configs/dig_info_geology.yaml` — 通過
+3. `uv run python -m lmetl.tools.sync_schemas --check configs/base.yaml` — 通過
 4. E2E 萃取結果品質不低於 Phase 1（confidence ≥ 0.78）
 5. YAML 中加完整推理參數 → LLM client 正確傳遞

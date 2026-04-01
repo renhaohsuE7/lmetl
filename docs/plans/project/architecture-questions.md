@@ -287,7 +287,7 @@ lmetl:
       num_predict: 4096
 ```
 
-- 不同模型可建不同 YAML（如 `dig_info_geology_qwen.yaml`），各帶最佳參數
+- 不同模型可複製 `base.yaml`（如 `base_qwen.yaml`），各帶最佳參數
 - `parameters` 為 optional，有填才傳，讓 Ollama/vLLM 各自用 default
 
 #### 2. Prompt 模板

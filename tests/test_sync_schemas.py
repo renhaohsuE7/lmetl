@@ -44,21 +44,21 @@ class TestSyncSchemas:
     def test_check_mode_passes(self):
         """After generating, check mode should pass."""
         # First generate
-        sync_schemas("configs/dig_info_geology.yaml", check_only=False)
+        sync_schemas("configs/base.yaml", check_only=False)
         # Then check — should return True
-        result = sync_schemas("configs/dig_info_geology.yaml", check_only=True)
+        result = sync_schemas("configs/base.yaml", check_only=True)
         assert result is True
 
     def test_cli_check_mode(self):
         """Test CLI --check mode via subprocess."""
         # Ensure files are generated first
         subprocess.run(
-            [sys.executable, "-m", "lmetl.tools.sync_schemas", "configs/dig_info_geology.yaml"],
+            [sys.executable, "-m", "lmetl.tools.sync_schemas", "configs/base.yaml"],
             check=True,
         )
         # Check should pass
         result = subprocess.run(
-            [sys.executable, "-m", "lmetl.tools.sync_schemas", "--check", "configs/dig_info_geology.yaml"],
+            [sys.executable, "-m", "lmetl.tools.sync_schemas", "--check", "configs/base.yaml"],
             capture_output=True, text=True,
         )
         assert result.returncode == 0

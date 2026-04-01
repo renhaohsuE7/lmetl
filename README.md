@@ -14,40 +14,34 @@ DocxSource → LLMTransform (Ollama) → JsonExtractionSink + TxtFallbackSink
 
 ## Configuration
 
-所有萃取配置集中在 YAML，包含模型參數、prompt 模板、schema 欄位定義。預設：`configs/<domain>.yaml`。
+兩層配置：`configs/base.yaml`（LLM + prompts + core schema + pipeline）+ `configs/genres/*.yaml`（genre 定義）。
 
-**自訂 Genre 範例**：假設要建立物理學文獻萃取，在 YAML `lmetl.schemas.genres` 下新增 `physics` 區塊：
-
-```yaml
-# configs/physics_papers.yaml
-lmetl:
-  extraction:
-    genre: physics          # 指定使用 physics genre
-  schemas:
-    genres:
-      physics:
-        system_prompt_suffix: |
-          你具備物理學專業知識，擅長辨識方程式、實驗方法與物理量。
-        fields:
-          - name: equations
-            type: list[str]
-            description: 文中提及的重要方程式
-          - name: physical_quantities
-            type: list[str]
-            description: 關鍵物理量及其數值
-          - name: experiment_methods
-            type: list[str]
-            description: 實驗方法與裝置
+```
+configs/
+├── base.yaml              # 唯一主 config（切換 genre 改 extraction.genre）
+└── genres/
+    ├── geology.yaml       # 地質 genre fields + prompt suffix
+    └── physics.yaml       # 物理 genre（新增只需加檔案）
 ```
 
-執行 `sync_schemas` 從 YAML 自動產生對應的 Pydantic model（`schemas/genres/physics.py`）：
+```yaml
+# configs/genres/physics.yaml — 新增 genre 只需加一個檔案
+system_prompt_suffix: |
+  你具備物理學專業知識，擅長辨識方程式、實驗方法與物理量。
+fields:
+  - name: equations
+    type: list[str]
+    description: 文中提及的重要方程式
+  - name: physical_quantities
+    type: list[str]
+    description: 關鍵物理量及其數值
+```
+
+切換 genre：修改 `configs/base.yaml` 的 `extraction.genre: physics`，再 sync：
 
 ```bash
-# 產生 schema
-uv run python -m lmetl.tools.sync_schemas configs/physics_papers.yaml
-
-# 驗證 schema 是否與 YAML 同步（CI 可用）
-uv run python -m lmetl.tools.sync_schemas --check configs/physics_papers.yaml
+uv run python -m lmetl.tools.sync_schemas configs/base.yaml
+uv run python -m lmetl.tools.sync_schemas --check configs/base.yaml  # CI 驗證
 ```
 
 詳細說明：[Usage Guide](docs/references/llm/usage-guide.md) | [YAML Config Guide](docs/references/llm/yaml-config-guide.md)
@@ -76,7 +70,7 @@ uv run python -m lmetl.tools.run_extraction data/your_report.docx
 uv run python -m lmetl.tools.run_extraction data/your_report.docx --max-chunks 5
 
 # Run pipeline via pwetl
-LMETL_CONFIG=configs/dig_info_geology.yaml docker compose up app
+LMETL_CONFIG=configs/base.yaml docker compose up app
 ```
 
 輸出：`output/extractions/<filename>.json`

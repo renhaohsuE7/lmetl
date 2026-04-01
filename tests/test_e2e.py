@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 OLLAMA_ENDPOINT = os.environ.get("OLLAMA_ENDPOINT", "http://192.168.9.160:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gpt-oss:120b")
 DOCX_PATH = "data/dig_info_from_pdf_mission_data/[109]大屯火山群地區地熱探勘資料執行摘要.docx"
-CONFIG_PATH = "configs/dig_info_geology.yaml"
+CONFIG_PATH = "configs/base.yaml"
 MAX_CHUNKS = 5  # Test more chunks for better coverage
 
 

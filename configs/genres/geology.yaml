@@ -1,0 +1,28 @@
+system_prompt_suffix: |
+  你同時具備地質學與地熱能源專業知識，
+  能辨識岩性、地層、溫度梯度、鑽井資訊等專業術語。
+fields:
+  - name: rock_types
+    type: list[str]
+    description: 岩石類型
+  - name: formations
+    type: list[str]
+    description: 地層名稱
+  - name: geological_age
+    type: str?
+    description: 地質年代
+  - name: temperature_gradient
+    type: str?
+    description: 溫度梯度
+  - name: drilling_depth
+    type: str?
+    description: 鑽井深度
+  - name: well_names
+    type: list[str]
+    description: 井名列表
+  - name: geothermal_assessment
+    type: str?
+    description: 地熱資源評估
+  - name: exploration_methods
+    type: list[str]
+    description: 探勘方法

@@ -21,7 +21,7 @@ class LLMTransform(BaseTransform):
     """Transforms document chunks into structured extraction results via LLM."""
 
     def setup(self) -> None:
-        config_path = os.environ.get("LMETL_CONFIG", "configs/dig_info_geology.yaml")
+        config_path = os.environ.get("LMETL_CONFIG", "configs/base.yaml")
         self.etl_config = load_lmetl_config(config_path)
 
         # Config-driven initialization

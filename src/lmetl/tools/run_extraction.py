@@ -3,7 +3,7 @@
 Usage:
     uv run python -m lmetl.tools.run_extraction <docx_path>
     uv run python -m lmetl.tools.run_extraction <docx_path> --max-chunks 5
-    uv run python -m lmetl.tools.run_extraction <docx_path> --config configs/dig_info_geology.yaml
+    uv run python -m lmetl.tools.run_extraction <docx_path> --config configs/base.yaml
 """
 
 import argparse
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def run_extraction(
     docx_path: str,
-    config_path: str = "configs/dig_info_geology.yaml",
+    config_path: str = "configs/base.yaml",
     output_dir: str = "output/extractions",
     max_chunks: int = 0,
 ) -> None:
@@ -122,7 +122,7 @@ def run_extraction(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run LLM extraction on a docx file.")
     parser.add_argument("docx", help="Path to docx file")
-    parser.add_argument("--config", default="configs/dig_info_geology.yaml", help="YAML config path")
+    parser.add_argument("--config", default="configs/base.yaml", help="YAML config path")
     parser.add_argument("--output-dir", default="output/extractions", help="Output directory")
     parser.add_argument("--max-chunks", type=int, default=0, help="Limit chunks (0=all)")
     args = parser.parse_args()

@@ -10,9 +10,9 @@ services:
     env_file:
       - .env
     environment:
-      - LMETL_CONFIG=configs/dig_info_geology.yaml
+      - LMETL_CONFIG=configs/base.yaml
     command: >
-      uv run pwetl --config configs/dig_info_geology.yaml
+      uv run pwetl --config configs/base.yaml
 
   test:
     build:

@@ -6,7 +6,7 @@
 
 ## 1. YAML 配置檔
 
-位置：`configs/dig_info_geology.yaml`
+位置：`configs/base.yaml`
 
 此 YAML 是 pipeline 的唯一控制點，包含：
 - pwetl pipeline 定義（sources / transform / sinks）
@@ -43,27 +43,25 @@ prompts:
 
 ### 1.b 新增 Genre
 
-在 `lmetl.schemas.genres` 下新增區塊即可：
+在 `configs/genres/` 新增 YAML 檔案：
 
 ```yaml
-schemas:
-  genres:
-    hydrology:                          # genre 名稱
-      system_prompt_suffix: |           # 附加到 system prompt 的專業描述
-        你具備水文學專業知識...
-      fields:                           # 欄位定義
-        - name: watershed
-          type: str?
-          description: 流域名稱
-        - name: water_quality_params
-          type: list[str]
-          description: 水質參數
+# configs/genres/hydrology.yaml
+system_prompt_suffix: |
+  你具備水文學專業知識...
+fields:
+  - name: watershed
+    type: str?
+    description: 流域名稱
+  - name: water_quality_params
+    type: list[str]
+    description: 水質參數
 ```
 
-然後設定 `lmetl.extraction.genre: hydrology`，再執行 sync_schemas 產生 Pydantic model：
+然後修改 `configs/base.yaml` 的 `extraction.genre: hydrology`，再執行 sync_schemas 產生 Pydantic model：
 
 ```bash
-uv run python -m lmetl.tools.sync_schemas configs/dig_info_geology.yaml
+uv run python -m lmetl.tools.sync_schemas configs/base.yaml
 ```
 
 支援的類型：`str`, `str?`, `int`, `int?`, `float`, `float?`, `list[str]`。可選 `constraints`（`ge`, `le`, `default`）。
@@ -160,7 +158,7 @@ E2E 測試會自動 skip 如果 Ollama 不可達或測試檔案不存在。
 ### Schema 一致性檢查
 
 ```bash
-uv run python -m lmetl.tools.sync_schemas --check configs/dig_info_geology.yaml
+uv run python -m lmetl.tools.sync_schemas --check configs/base.yaml
 ```
 
 ### 測試結果（2026-04-01）

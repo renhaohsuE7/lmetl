@@ -23,8 +23,32 @@ def _resolve_env_vars(obj: Any) -> Any:
     return obj
 
 
+def _load_genre(config: Dict[str, Any], config_dir: Path) -> None:
+    """Auto-load genre definition from configs/genres/{genre}.yaml if not inline."""
+    genre = config.get("extraction", {}).get("genre")
+    if not genre:
+        return
+
+    genres = config.get("schemas", {}).get("genres", {})
+    if genre in genres:
+        return  # inline definition takes priority
+
+    genre_file = config_dir / "genres" / f"{genre}.yaml"
+    if not genre_file.exists():
+        return
+
+    with open(genre_file) as f:
+        genre_data = yaml.safe_load(f)
+
+    config.setdefault("schemas", {}).setdefault("genres", {})[genre] = genre_data
+
+
 def load_lmetl_config(config_path: str) -> Dict[str, Any]:
-    """Load the lmetl-specific section from a pipeline YAML config."""
+    """Load the lmetl-specific section from a pipeline YAML config.
+
+    Auto-loads genre definition from configs/genres/{genre}.yaml
+    if extraction.genre is set and no inline genre definition exists.
+    """
     path = Path(config_path)
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
@@ -32,4 +56,6 @@ def load_lmetl_config(config_path: str) -> Dict[str, Any]:
     with open(path) as f:
         full_config = yaml.safe_load(f)
 
-    return _resolve_env_vars(full_config.get("lmetl", {}))
+    config = _resolve_env_vars(full_config.get("lmetl", {}))
+    _load_genre(config, path.parent)
+    return config

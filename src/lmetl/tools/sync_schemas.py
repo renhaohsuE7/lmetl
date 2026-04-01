@@ -1,18 +1,16 @@
 """Generate Pydantic model files from YAML schema definitions.
 
 Usage:
-    uv run python -m lmetl.tools.sync_schemas configs/dig_info_geology.yaml
-    uv run python -m lmetl.tools.sync_schemas --check configs/dig_info_geology.yaml
+    uv run python -m lmetl.tools.sync_schemas configs/base.yaml
+    uv run python -m lmetl.tools.sync_schemas --check configs/base.yaml
 """
 
 import argparse
 import sys
-import textwrap
 from pathlib import Path
 from typing import Any, Dict, List
 
-import yaml
-
+from lmetl.utils.config import load_lmetl_config
 from lmetl.utils.schema_loader import _parse_type
 
 # Project root: src/lmetl/tools/sync_schemas.py → src/lmetl/
@@ -107,12 +105,8 @@ def sync_schemas(config_path: str, check_only: bool = False) -> bool:
 
     Returns True if everything is in sync, False otherwise.
     """
-    path = Path(config_path)
-    with open(path) as f:
-        full_config = yaml.safe_load(f)
-
-    etl_config = full_config.get("lmetl", {})
-    schemas = etl_config.get("schemas", {})
+    config = load_lmetl_config(config_path)
+    schemas = config.get("schemas", {})
 
     all_synced = True
 
