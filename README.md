@@ -97,9 +97,8 @@ uv run python -m lmetl.tools.run_extraction "filename"
 ## Inspired By
 
 - [pwetl](https://github.com/sw-willie-wu/pwetl) — Plugin architecture, YAML config, Factory/Registry pattern
-- [lamp](https://github.com/sw-willie-wu/lamp) — LLM application platform
 
-- **ChangChunCheng** (JackyChang)
-- **sw-willie-wu** (S.W.)
+- [**ChangChunCheng** (JackyChang)](https://github.com/ChangChunCheng)
+- [**sw-willie-wu** (S.W.)](https://github.com/sw-willie-wu)
 
-Special thanks to the authors of pwetl and lamp for the foundational architecture and inspiration.
+Special thanks to those people above for the foundational architecture and inspiration.
