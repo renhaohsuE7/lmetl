@@ -1,0 +1,163 @@
+# lmetl pipeline: extract geological info from docx reports
+# Usage: LMETL_CONFIG=configs/dig_info_geology.yaml pwetl --config configs/dig_info_geology.yaml
+
+sources:
+  - name: docx_source
+    type: custom
+    module: lmetl.sources.docx_source.DocxSource
+    file_path: data/dig_info_from_pdf_mission_data/[109]大屯火山群地區地熱探勘資料執行摘要.docx
+    chunking:
+      strategy: heading
+      max_tokens: 4000
+      overlap_tokens: 200
+    image_mode: metadata_only
+    schema:
+      chunk_id: str
+      source_file: str
+      source_page: int
+      source_page_end: int
+      source_section: str
+      source_position: str
+      chunk_index: int
+      content: str
+      content_type: str
+      image_refs: str
+      token_estimate: int
+
+transform: lmetl.transforms.llm_transform.LLMTransform
+
+sinks:
+  - name: json_output
+    type: custom
+    module: lmetl.sinks.json_sink.JsonExtractionSink
+    output_dir: output/extractions
+    include_metadata: true
+
+  - name: txt_fallback
+    type: custom
+    module: lmetl.sinks.txt_fallback_sink.TxtFallbackSink
+    output_dir: output/fallback
+
+# lmetl-specific configuration (loaded by LLMTransform in setup())
+lmetl:
+
+  # ── Model inference parameters ──
+  llm:
+    endpoint: ${OLLAMA_ENDPOINT:http://192.168.9.160:11434}
+    model: ${OLLAMA_MODEL:gpt-oss:120b}
+    timeout: 300
+    max_retries: 3
+    parameters:          # all optional, only send non-null to API
+      temperature: 0.1
+      top_k: 40
+      top_p: 0.9
+      min_p: 0.05
+      repeat_penalty: 1.1
+      num_predict: 4096  # max output tokens
+
+  # ── Extraction settings ──
+  extraction:
+    core: true
+    genre: geology
+    schema_version: "1.1"
+
+  # ── Prompt templates ──
+  prompts:
+    version: "1.1"
+    system: |
+      你是一位專業的文獻分析師，負責從研究報告中萃取結構化資訊。
+      請根據提供的文件段落，萃取所要求的欄位。
+      回覆必須是合法的 JSON 格式，符合指定的 schema。
+      如果某個欄位在文件中找不到相關資訊，請設為 null 或空陣列。
+      請附上 confidence_score (0.0-1.0) 表示你對萃取結果的信心程度。
+      請附上 thinking 欄位，簡述你的推理過程。
+    user_template: |
+      ## 文件：{source_file}
+      ## 章節：{source_section}
+
+      ## 內容：
+      {content}
+
+      ## 萃取要求：
+      {extraction_instructions}
+
+      ## JSON Schema：
+      ```json
+      {json_schema}
+      ```
+
+      請以合法 JSON 回覆，不要加入任何其他文字。
+
+  # ── Schema field definitions ──
+  schemas:
+    core:
+      system_prompt_suffix: ""
+      fields:
+        - name: title
+          type: str?
+          description: 文件標題
+        - name: authors
+          type: list[str]
+          description: 作者列表
+        - name: institution
+          type: str?
+          description: 執行單位
+        - name: date
+          type: str?
+          description: 日期
+        - name: year
+          type: int?
+          description: 年度（整數）
+        - name: abstract
+          type: str?
+          description: 摘要
+        - name: key_findings
+          type: list[str]
+          description: 關鍵發現（列表）
+        - name: llm_recommendations
+          type: list[str]
+          description: 基於內容的延伸建議（列表）
+        - name: llm_commentary
+          type: str?
+          description: 你對這段內容的專業評析
+        - name: confidence_score
+          type: float
+          description: 信心分數 (0.0-1.0)
+          constraints:
+            ge: 0.0
+            le: 1.0
+            default: 0.0
+        - name: thinking
+          type: str?
+          description: 推理過程
+
+    genres:
+      geology:
+        system_prompt_suffix: |
+          你同時具備地質學與地熱能源專業知識，
+          能辨識岩性、地層、溫度梯度、鑽井資訊等專業術語。
+        fields:
+          - name: rock_types
+            type: list[str]
+            description: 岩石類型
+          - name: formations
+            type: list[str]
+            description: 地層名稱
+          - name: geological_age
+            type: str?
+            description: 地質年代
+          - name: temperature_gradient
+            type: str?
+            description: 溫度梯度
+          - name: drilling_depth
+            type: str?
+            description: 鑽井深度
+          - name: well_names
+            type: list[str]
+            description: 井名列表
+          - name: geothermal_assessment
+            type: str?
+            description: 地熱資源評估
+          - name: exploration_methods
+            type: list[str]
+            description: 探勘方法

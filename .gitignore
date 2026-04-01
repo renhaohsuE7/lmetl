@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.env
+.venv/
+venv/
+output/
+data/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+docs/references/project/pwetl/

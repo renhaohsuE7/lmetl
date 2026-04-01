@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lmetl"
+version = "0.1.0"
+description = "ETL pipeline using LLMs to extract structured information from geological research reports. Inspired by pwetl."
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "pwetl",
+    "python-docx>=1.1.0",
+    "openai>=1.0.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-mock>=3.0",
+    "ruff>=0.1.0",
+]
+pdf = [
+    "pypdf>=4.0.0",
+]
+db = [
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lmetl"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+src = ["src"]
+line-length = 100
+
+[tool.uv.sources]
+pwetl = { git = "https://github.com/sw-willie-wu/pwetl.git" }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
+    "pytest-mock>=3.15.1",
+    "ruff>=0.15.8",
+]

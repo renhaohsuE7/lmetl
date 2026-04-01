@@ -1,0 +1,27 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+      - ./configs:/app/configs
+    env_file:
+      - .env
+    environment:
+      - LMETL_CONFIG=configs/dig_info_geology.yaml
+    command: >
+      uv run pwetl --config configs/dig_info_geology.yaml
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./tests:/app/tests
+      - ./src:/app/src
+      - ./configs:/app/configs
+      - ./data:/app/data
+      - ./output:/app/output
+    command: uv run pytest tests/ -v
