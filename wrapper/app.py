@@ -70,10 +70,16 @@ async def extract(request: Request, genre: str = Query(default="")) -> JSONRespo
     client = LLMClient(config.get("llm", {}))
     builder = PromptBuilder(config)
 
+    system_prompt = builder.build_system_prompt()
     results = []
     for chunk in chunks:
-        resp = client.extract(builder.build_system_prompt(), builder.build_user_prompt(chunk))
-        parsed, err = parse_llm_json(resp.content)
+        # One bad chunk (LLM/transport error or unparseable JSON) must not fail the
+        # whole document; record it as a per-chunk error and carry on.
+        try:
+            resp = client.extract(system_prompt, builder.build_user_prompt(chunk))
+            parsed, err = parse_llm_json(resp.content)
+        except Exception as ex:  # noqa: BLE001
+            parsed, err = None, f"llm call failed: {ex}"
         results.append(
             {
                 "chunk_id": chunk["chunk_id"],

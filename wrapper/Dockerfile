@@ -1,6 +1,8 @@
 # lmetl HTTP wrapper — POST /extract (docx -> structured JSON).
 # Build from the lmetl repo root:  docker build -f wrapper/Dockerfile -t lmetl-extractor .
-FROM python:3.12-slim
+# Full python image (buildpack-deps) ships git, which uv needs to fetch lmetl's
+# pwetl git dependency. (slim lacks git.)
+FROM python:3.12
 
 WORKDIR /app
 RUN pip install --no-cache-dir uv
