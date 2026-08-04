@@ -34,6 +34,7 @@ import tempfile
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse
 
+from lmetl.aggregate import AllInfoAccumulator, combined_fields
 from lmetl.chunking.docx_chunker import DocxChunker
 from lmetl.llm.client import LLMClient
 from lmetl.llm.prompts import PromptBuilder
@@ -101,6 +102,11 @@ async def extract(
 
     client = LLMClient(config.get("llm", {}))
     builder = PromptBuilder(config)
+    # Document-level all_info master table: each chunk's extraction merges in as
+    # it completes (rule-based, no extra LLM calls; failed chunks just count).
+    accumulator = AllInfoAccumulator(
+        combined_fields(builder.schema_loader, builder.core, builder.genre)
+    )
 
     system_prompt = builder.build_system_prompt()
     results = []
@@ -112,6 +118,10 @@ async def extract(
             parsed, err = parse_llm_json(resp.content)
         except Exception as ex:  # noqa: BLE001
             parsed, err = None, f"llm call failed: {ex}"
+        if isinstance(parsed, dict):
+            accumulator.add_chunk(chunk["chunk_id"], parsed)
+        else:
+            accumulator.add_failed_chunk(chunk["chunk_id"])
         results.append(
             {
                 "chunk_id": chunk["chunk_id"],
@@ -128,6 +138,7 @@ async def extract(
             "structured_json": {
                 "genre": genre or config.get("extraction", {}).get("genre", ""),
                 "chunks": results,
+                "all_info": accumulator.result(),
             },
             "title": "",  # consumer sets its own title
             "topics": [],

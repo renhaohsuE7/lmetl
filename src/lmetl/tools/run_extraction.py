@@ -13,6 +13,7 @@ import os
 import sys
 import time
 
+from lmetl.aggregate import AllInfoAccumulator, combined_fields
 from lmetl.chunking.docx_chunker import DocxChunker
 from lmetl.llm.client import LLMClient
 from lmetl.llm.prompts import PromptBuilder
@@ -48,6 +49,10 @@ def run_extraction(
 
     client = LLMClient(config.get("llm", {}))
     builder = PromptBuilder(config)
+    # Document-level all_info master table (rule-based merge as chunks complete).
+    accumulator = AllInfoAccumulator(
+        combined_fields(builder.schema_loader, builder.core, builder.genre)
+    )
 
     results = []
     t_start = time.time()
@@ -95,15 +100,27 @@ def run_extraction(
             })
             logger.info("  FAIL - %s", error)
 
+        if isinstance(parsed, dict):
+            accumulator.add_chunk(chunk["chunk_id"], parsed)
+        else:
+            accumulator.add_failed_chunk(chunk["chunk_id"])
+
     t_total = time.time() - t_start
 
-    # Write results
+    # Write results. Output is a dict (was a bare chunk list before all_info):
+    # dev CLI only, not a service contract.
+    all_info = accumulator.result()
+    output = {
+        "genre": builder.genre or "",
+        "all_info": all_info,
+        "chunks": results,
+    }
     os.makedirs(output_dir, exist_ok=True)
     stem = Path(docx_path).stem
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     output_path = os.path.join(output_dir, f"{stem}_{timestamp}.json")
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(results, f, ensure_ascii=False, indent=2)
+        json.dump(output, f, ensure_ascii=False, indent=2)
 
     # Summary
     success = [r for r in results if r.get("extraction") is not None]
@@ -114,6 +131,10 @@ def run_extraction(
     logger.info("=== DONE ===")
     logger.info("Total time: %.0fs (%.1f min)", t_total, t_total / 60)
     logger.info("Success: %d/%d", len(success), len(results))
+    logger.info(
+        "all_info: %d chunks merged, %d failed",
+        all_info["_stats"]["chunks_merged"], all_info["_stats"]["chunks_failed"],
+    )
     logger.info("Avg confidence: %.3f", avg_conf)
     logger.info("Avg latency: %.0fms", avg_lat)
     logger.info("Output: %s", output_path)
