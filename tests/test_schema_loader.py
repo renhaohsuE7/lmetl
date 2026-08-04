@@ -169,3 +169,87 @@ class TestSchemaLoader:
         loader = SchemaLoader(_TEST_CONFIG)
         with pytest.raises(ValueError, match="No fields found"):
             loader.build_pydantic_model("nonexistent")
+
+
+# ── list[object] entity fields (all_info design: lamp §9e) ──
+
+_WELLS_FIELD = {
+    "name": "wells",
+    "type": "list[object]",
+    "identity": "name",
+    "description": "鑽井/溫泉井資訊",
+    "fields": [
+        {"name": "name", "type": "str", "description": "井名"},
+        {"name": "depth", "type": "str?", "description": "深度"},
+        {"name": "tags", "type": "list[str]", "description": "標籤"},
+    ],
+}
+
+_LIST_OBJECT_CONFIG = {
+    "schemas": {
+        "core": {
+            "system_prompt_suffix": "",
+            "fields": [{"name": "title", "type": "str?", "description": "文件標題"}],
+        },
+        "genres": {
+            "geology": {
+                "system_prompt_suffix": "",
+                "fields": [
+                    {"name": "rock_types", "type": "list[str]", "description": "岩石類型"},
+                    _WELLS_FIELD,
+                ],
+            },
+        },
+    },
+    "extraction": {"core": True, "genre": "geology"},
+}
+
+
+class TestListObject:
+    def test_json_schema_nested_object(self):
+        loader = SchemaLoader(_LIST_OBJECT_CONFIG)
+        schema = loader.build_json_schema(core=False, genre="geology")
+        wells = schema["properties"]["wells"]
+        assert wells["type"] == "array"
+        assert wells["description"] == "鑽井/溫泉井資訊"
+        items = wells["items"]
+        assert items["type"] == "object"
+        assert items["properties"]["name"]["type"] == "string"
+        assert items["properties"]["depth"]["type"] == ["string", "null"]
+        assert items["properties"]["tags"]["type"] == "array"
+        assert items["required"] == ["name"]
+        # The array field itself is never top-level required
+        assert "wells" not in schema.get("required", [])
+
+    def test_instructions_describe_nested_fields(self):
+        loader = SchemaLoader(_LIST_OBJECT_CONFIG)
+        text = loader.build_extraction_instructions(core=True, genre="geology")
+        assert "- wells: 鑽井/溫泉井資訊" in text
+        assert "name=井名" in text
+        assert "depth=深度" in text
+        assert "tags=標籤" in text
+
+    def test_pydantic_nested_model(self):
+        loader = SchemaLoader(_LIST_OBJECT_CONFIG)
+        Model = loader.build_pydantic_model("geology")
+        inst = Model(wells=[{"name": "TH-1", "depth": "1200m", "tags": ["溫泉"]}])
+        assert inst.wells[0].name == "TH-1"
+        assert inst.wells[0].depth == "1200m"
+        assert inst.wells[0].tags == ["溫泉"]
+        assert Model().wells == []
+
+    def test_nested_list_object_rejected(self):
+        bad = {
+            "schemas": {
+                "core": {"fields": []},
+                "genres": {"g": {"fields": [{
+                    "name": "outer", "type": "list[object]",
+                    "fields": [{"name": "inner", "type": "list[object]", "fields": []}],
+                }]}},
+            },
+        }
+        loader = SchemaLoader(bad)
+        with pytest.raises(ValueError, match="depth"):
+            loader.build_json_schema(core=False, genre="g")
+        with pytest.raises(ValueError, match="depth"):
+            loader.build_pydantic_model("g")
