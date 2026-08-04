@@ -11,16 +11,28 @@ result instead of writing it to `output/`.
 ## Contract
 
 ```
-POST /extract?genre=<genre>
+POST /extract?genre=<genre>&parse_only=<bool>
   body: raw docx bytes
   Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
 
 200 -> { "full_text": str,
          "structured_json": { "genre": str, "chunks": [ {chunk_id, source_section,
-                              source_page, extraction, parse_error} ] },
+                              source_page, extraction, parse_error} ],
+                              "all_info": { <schema keys>, "_provenance": {...},
+                                            "_stats": {chunks_merged, chunks_failed,
+                                                       confidence_min, confidence_avg} } },
          "title": str, "topics": [str] }
 non-2xx -> failure
 ```
+
+- `parse_only=true`: fast lane — parse/chunk only, no LLM at all; `chunks` is empty
+  with an explicit `"parse_only": true` marker and no `all_info`.
+- `all_info` (full lane): document-level master table, rule-merged from every
+  chunk's extraction as it completes — keys mirror the genre schema. `list[str]`
+  fields union (deduped), scalars keep the first non-null value, and
+  `list[object]` entity fields (e.g. geology `wells`) merge per entity by their
+  `identity` key with `source_chunk_ids` provenance and field conflicts kept in
+  `conflicts` instead of being overwritten.
 
 `GET /healthz` → `{"status":"ok"}`.
 
