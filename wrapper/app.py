@@ -33,6 +33,7 @@ import tempfile
 
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from lmetl.aggregate import AllInfoAccumulator, combined_fields
 from lmetl.chunking.docx_chunker import DocxChunker
@@ -64,6 +65,17 @@ async def extract(
     if len(data) > MAX_BYTES:
         return JSONResponse({"error": "upload too large"}, status_code=413)
 
+    # The extraction pipeline is synchronous, blocking work (docx parsing +
+    # per-chunk LLM round-trips, minutes for real documents). Run it in the
+    # threadpool so ONE slow extraction cannot freeze the event loop — before
+    # this, a single full-lane request blocked /healthz and the parse_only
+    # fast lane for its entire duration (V3, 2026-08-04 chain verification).
+    payload, status_code = await run_in_threadpool(_extract_sync, data, genre, parse_only)
+    return JSONResponse(payload, status_code=status_code)
+
+
+def _extract_sync(data: bytes, genre: str, parse_only: bool) -> tuple[dict, int]:
+    """The blocking extraction pipeline; returns (response payload, status)."""
     # Load config; override the genre when provided. Genre fields/prompts come from
     # configs/genres/<genre>.yaml; load_lmetl_config is expected to honour
     # extraction.genre. If a per-genre sync_schemas step is required, pre-sync the
@@ -78,7 +90,7 @@ async def extract(
         try:
             chunks = DocxChunker(max_tokens=4000, overlap_tokens=200).chunk(tmp.name)
         except Exception as e:  # noqa: BLE001 -- surface docx parse failures as 422
-            return JSONResponse({"error": f"docx parse failed: {e}"}, status_code=422)
+            return {"error": f"docx parse failed: {e}"}, 422
 
     full_text = "\n\n".join(c["content"] for c in chunks)
 
@@ -87,18 +99,16 @@ async def extract(
         # client at all so this path cannot block on (or leak config errors
         # from) the LLM stack. chunks stays empty — the explicit parse_only
         # marker tells consumers "not extracted", never "extracted nothing".
-        return JSONResponse(
-            {
-                "full_text": full_text,
-                "structured_json": {
-                    "genre": genre or config.get("extraction", {}).get("genre", ""),
-                    "chunks": [],
-                    "parse_only": True,
-                },
-                "title": "",  # consumer sets its own title
-                "topics": [],
-            }
-        )
+        return {
+            "full_text": full_text,
+            "structured_json": {
+                "genre": genre or config.get("extraction", {}).get("genre", ""),
+                "chunks": [],
+                "parse_only": True,
+            },
+            "title": "",  # consumer sets its own title
+            "topics": [],
+        }, 200
 
     client = LLMClient(config.get("llm", {}))
     builder = PromptBuilder(config)
@@ -132,15 +142,13 @@ async def extract(
             }
         )
 
-    return JSONResponse(
-        {
-            "full_text": full_text,
-            "structured_json": {
-                "genre": genre or config.get("extraction", {}).get("genre", ""),
-                "chunks": results,
-                "all_info": accumulator.result(),
-            },
-            "title": "",  # consumer sets its own title
-            "topics": [],
-        }
-    )
+    return {
+        "full_text": full_text,
+        "structured_json": {
+            "genre": genre or config.get("extraction", {}).get("genre", ""),
+            "chunks": results,
+            "all_info": accumulator.result(),
+        },
+        "title": "",  # consumer sets its own title
+        "topics": [],
+    }, 200
