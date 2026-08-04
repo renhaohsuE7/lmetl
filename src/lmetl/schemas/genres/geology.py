@@ -5,6 +5,15 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+class WellsItem(BaseModel):
+    """Nested items for wells (identity: name)."""
+
+    name: str = Field(description='井名')
+    depth: Optional[str] = Field(default=None, description='深度')
+    temperature: Optional[str] = Field(default=None, description='溫度')
+    location: Optional[str] = Field(default=None, description='位置')
+
+
 class GeologyExtractionResult(BaseModel):
     """Domain-specific fields for geology reports."""
 
@@ -14,5 +23,6 @@ class GeologyExtractionResult(BaseModel):
     temperature_gradient: Optional[str] = Field(default=None, description='溫度梯度')
     drilling_depth: Optional[str] = Field(default=None, description='鑽井深度')
     well_names: List[str] = Field(default_factory=list, description='井名列表')
+    wells: List[WellsItem] = Field(default_factory=list, description='鑽井/溫泉井資訊（每口井一個物件；同一口井的資訊請彙整在同一物件）')
     geothermal_assessment: Optional[str] = Field(default=None, description='地熱資源評估')
     exploration_methods: List[str] = Field(default_factory=list, description='探勘方法')

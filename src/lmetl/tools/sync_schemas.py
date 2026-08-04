@@ -11,12 +11,17 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from lmetl.utils.config import load_lmetl_config
-from lmetl.utils.schema_loader import _parse_type
+from lmetl.utils.schema_loader import _parse_type, _reject_nested_list_object
 
 # Project root: src/lmetl/tools/sync_schemas.py → src/lmetl/
 _PACKAGE_ROOT = Path(__file__).parent.parent
 _SCHEMAS_DIR = _PACKAGE_ROOT / "schemas"
 _GENRES_DIR = _SCHEMAS_DIR / "genres"
+
+
+def _item_class_name(field_name: str) -> str:
+    """Nested model class name for a list[object] field (wells → WellsItem)."""
+    return field_name.capitalize() + "Item"
 
 
 def _field_to_pydantic_line(field: Dict[str, Any]) -> str:
@@ -25,6 +30,13 @@ def _field_to_pydantic_line(field: Dict[str, Any]) -> str:
     type_str = field.get("type", "str?")
     description = field.get("description", "")
     constraints = field.get("constraints", {})
+
+    if type_str == "list[object]":
+        item_class = _item_class_name(name)
+        return (
+            f"    {name}: List[{item_class}] = "
+            f"Field(default_factory=list, description={description!r})"
+        )
 
     base_type, _, is_optional, is_list = _parse_type(type_str)
 
@@ -64,10 +76,20 @@ def generate_model_code(
     docstring: str,
     fields: List[Dict[str, Any]],
 ) -> str:
-    """Generate complete Python source for a Pydantic model."""
-    # Determine needed imports
-    needs_list = any(f.get("type", "").startswith("list[") for f in fields)
-    needs_optional = any(f.get("type", "").endswith("?") for f in fields)
+    """Generate complete Python source for a Pydantic model.
+
+    list[object] fields produce a nested ``{Field}Item`` model class emitted
+    before the main class (depth-1 only; see all_info design, lamp §9e).
+    """
+    entity_fields = [f for f in fields if f.get("type") == "list[object]"]
+    for field in entity_fields:
+        _reject_nested_list_object(field)
+    nested_field_defs = [nf for f in entity_fields for nf in f.get("fields", [])]
+
+    # Determine needed imports (nested definitions count too)
+    all_defs = fields + nested_field_defs
+    needs_list = any(f.get("type", "").startswith("list[") for f in all_defs)
+    needs_optional = any(f.get("type", "").endswith("?") for f in all_defs)
 
     typing_imports = []
     if needs_list:
@@ -87,6 +109,22 @@ def generate_model_code(
     lines.extend([
         "from pydantic import BaseModel, Field",
         "",
+    ])
+
+    for field in entity_fields:
+        identity = field.get("identity")
+        identity_note = f" (identity: {identity})" if identity else ""
+        lines.extend([
+            "",
+            f"class {_item_class_name(field['name'])}(BaseModel):",
+            f'    """Nested items for {field["name"]}{identity_note}."""',
+            "",
+        ])
+        for nested in field.get("fields", []):
+            lines.append(_field_to_pydantic_line(nested))
+        lines.append("")
+
+    lines.extend([
         "",
         f"class {class_name}(BaseModel):",
         f'    """{docstring}"""',

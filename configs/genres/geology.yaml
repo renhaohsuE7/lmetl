@@ -20,6 +20,23 @@ fields:
   - name: well_names
     type: list[str]
     description: 井名列表
+  - name: wells
+    type: list[object]
+    identity: name
+    description: 鑽井/溫泉井資訊（每口井一個物件；同一口井的資訊請彙整在同一物件）
+    fields:
+      - name: name
+        type: str
+        description: 井名
+      - name: depth
+        type: str?
+        description: 深度
+      - name: temperature
+        type: str?
+        description: 溫度
+      - name: location
+        type: str?
+        description: 位置
   - name: geothermal_assessment
     type: str?
     description: 地熱資源評估

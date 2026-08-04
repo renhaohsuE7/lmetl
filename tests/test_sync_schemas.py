@@ -63,3 +63,32 @@ class TestSyncSchemas:
         )
         assert result.returncode == 0
         assert "OK" in result.stdout
+
+
+class TestListObjectGeneration:
+    def test_list_object_generates_nested_model(self):
+        fields = [
+            {"name": "title", "type": "str?", "description": "標題"},
+            {
+                "name": "wells", "type": "list[object]", "identity": "name",
+                "description": "鑽井資訊",
+                "fields": [
+                    {"name": "name", "type": "str", "description": "井名"},
+                    {"name": "depth", "type": "str?", "description": "深度"},
+                    {"name": "tags", "type": "list[str]", "description": "標籤"},
+                ],
+            },
+        ]
+        code = generate_model_code("GeoModel", "Doc.", fields)
+
+        assert "class WellsItem(BaseModel):" in code
+        assert "identity: name" in code  # nested docstring records the merge key
+        assert "wells: List[WellsItem] = Field(default_factory=list" in code
+        assert "name: str = Field(description='井名')" in code
+        assert "depth: Optional[str] = Field(default=None, description='深度')" in code
+        assert "tags: List[str] = Field(default_factory=list, description='標籤')" in code
+        # nested class must be defined before the main class references it
+        assert code.index("class WellsItem") < code.index("class GeoModel")
+        # nested optional forces the Optional import even if top level has none
+        assert "Optional" in code
+        compile(code, "<test>", "exec")
