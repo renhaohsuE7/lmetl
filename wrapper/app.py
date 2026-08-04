@@ -13,6 +13,14 @@ Contract (fixed by the consumer):
     200 -> {"full_text": str, "structured_json": object, "title": str, "topics": [str]}
     non-2xx -> failure
 
+    POST /extract?parse_only=true  (fast lane, 2026-08-04 — the consumers' split-track ask)
+        Runs the docx parse/chunk stage ONLY and skips the LLM entirely:
+        full_text comes back in seconds, structured_json is
+        {"genre": ..., "chunks": [], "parse_only": true}. Callers ingest
+        full_text immediately (e.g. RAG) and run the minutes-long structured
+        extraction as a separate default-lane call when they want it.
+        Default (absent/false) keeps the existing behavior unchanged.
+
 Run:
     uv run uvicorn wrapper.app:app --host 0.0.0.0 --port 9400
 Env:
@@ -44,7 +52,11 @@ def healthz() -> dict:
 
 
 @app.post("/extract")
-async def extract(request: Request, genre: str = Query(default="")) -> JSONResponse:
+async def extract(
+    request: Request,
+    genre: str = Query(default=""),
+    parse_only: bool = Query(default=False),
+) -> JSONResponse:
     data = await request.body()
     if not data:
         return JSONResponse({"error": "empty body"}, status_code=400)
@@ -66,6 +78,26 @@ async def extract(request: Request, genre: str = Query(default="")) -> JSONRespo
             chunks = DocxChunker(max_tokens=4000, overlap_tokens=200).chunk(tmp.name)
         except Exception as e:  # noqa: BLE001 -- surface docx parse failures as 422
             return JSONResponse({"error": f"docx parse failed: {e}"}, status_code=422)
+
+    full_text = "\n\n".join(c["content"] for c in chunks)
+
+    if parse_only:
+        # Fast lane: parsing is millisecond-level; do NOT construct the LLM
+        # client at all so this path cannot block on (or leak config errors
+        # from) the LLM stack. chunks stays empty — the explicit parse_only
+        # marker tells consumers "not extracted", never "extracted nothing".
+        return JSONResponse(
+            {
+                "full_text": full_text,
+                "structured_json": {
+                    "genre": genre or config.get("extraction", {}).get("genre", ""),
+                    "chunks": [],
+                    "parse_only": True,
+                },
+                "title": "",  # consumer sets its own title
+                "topics": [],
+            }
+        )
 
     client = LLMClient(config.get("llm", {}))
     builder = PromptBuilder(config)
@@ -90,7 +122,6 @@ async def extract(request: Request, genre: str = Query(default="")) -> JSONRespo
             }
         )
 
-    full_text = "\n\n".join(c["content"] for c in chunks)
     return JSONResponse(
         {
             "full_text": full_text,
