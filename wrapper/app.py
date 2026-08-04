@@ -76,13 +76,12 @@ async def extract(
 
 def _extract_sync(data: bytes, genre: str, parse_only: bool) -> tuple[dict, int]:
     """The blocking extraction pipeline; returns (response payload, status)."""
-    # Load config; override the genre when provided. Genre fields/prompts come from
-    # configs/genres/<genre>.yaml; load_lmetl_config is expected to honour
-    # extraction.genre. If a per-genre sync_schemas step is required, pre-sync the
-    # supported genres at image build (see Dockerfile / README).
-    config = load_lmetl_config(CONFIG_PATH)
-    if genre:
-        config.setdefault("extraction", {})["genre"] = genre
+    # Load config with the requested genre applied BEFORE the genre-file
+    # autoload (④b fix): overriding extraction.genre after load_lmetl_config
+    # returned meant the requested genre's YAML was never read — every
+    # non-default genre silently degraded to core-only extraction. A genre
+    # with no YAML (e.g. "base", the gateway default) still means core-only.
+    config = load_lmetl_config(CONFIG_PATH, genre)
 
     with tempfile.NamedTemporaryFile(suffix=".docx") as tmp:
         tmp.write(data)

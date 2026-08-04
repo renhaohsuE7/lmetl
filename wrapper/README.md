@@ -60,13 +60,18 @@ docker run --rm -p 9400:9400 -e OLLAMA_BASE_URL=<ollama-url> lmetl-extractor
 
 ## Notes / caveats
 
-- **Slow + synchronous:** extraction is LLM-bound (minutes for large docx). The
-  gsmma_lm caller invokes this from an async worker with a long timeout; run the
-  service with a generous keep-alive and enough workers (or front it with a queue).
-- **Genre switching:** `POST /extract?genre=physics` overrides `extraction.genre`.
-  Confirm `load_lmetl_config` + `PromptBuilder` honour an overridden genre at runtime;
-  if a `sync_schemas` step is needed per genre, pre-sync supported genres in the image
-  (commented hint in `Dockerfile`).
+- **Slow lane is LLM-bound** (minutes for large docx) but no longer blocks the
+  server: the pipeline runs in the threadpool, so `/healthz` and the
+  `parse_only` fast lane keep answering during a slow extraction. Callers
+  should still use an async worker with a long timeout.
+- **Genre switching:** `POST /extract?genre=physics` loads
+  `configs/genres/physics.yaml` per request (fixed 2026-08-04 — previously
+  only the config default genre was ever loaded and every other genre
+  silently degraded to core-only). ⚠️ A genre with NO yaml file still
+  degrades to core-only **silently, by design** — `genre=base` (the gateway
+  default) relies on this to mean "core fields only". Typos in genre names
+  therefore do not error; check `structured_json.all_info` keys if fields
+  look missing.
 - **structured_json shape** is opaque to the consumer (stored as the insight content).
   Coordinate with the consumer before changing it.
 

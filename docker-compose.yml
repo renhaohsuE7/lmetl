@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    mem_limit: 2g  # docx parse + LLM extraction; never run containers unbounded
     volumes:
       - ./data:/app/data
       - ./output:/app/output
@@ -18,6 +19,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.test
+    mem_limit: 2g
     volumes:
       - ./tests:/app/tests
       - ./src:/app/src

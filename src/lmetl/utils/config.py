@@ -43,11 +43,18 @@ def _load_genre(config: Dict[str, Any], config_dir: Path) -> None:
     config.setdefault("schemas", {}).setdefault("genres", {})[genre] = genre_data
 
 
-def load_lmetl_config(config_path: str) -> Dict[str, Any]:
+def load_lmetl_config(config_path: str, genre: str = "") -> Dict[str, Any]:
     """Load the lmetl-specific section from a pipeline YAML config.
 
-    Auto-loads genre definition from configs/genres/{genre}.yaml
-    if extraction.genre is set and no inline genre definition exists.
+    Auto-loads genre definition from configs/genres/{genre}.yaml if
+    extraction.genre is set and no inline genre definition exists.
+
+    ``genre`` (optional) overrides extraction.genre BEFORE the genre autoload
+    runs — callers that override it after loading (the old wrapper shape)
+    never got the requested genre's YAML loaded, silently degrading every
+    non-default genre to core-only extraction. A genre with no YAML file
+    still degrades to core-only on purpose ("base" relies on this — it is
+    the gateway's default genre and means "core fields only").
     """
     path = Path(config_path)
     if not path.exists():
@@ -57,5 +64,7 @@ def load_lmetl_config(config_path: str) -> Dict[str, Any]:
         full_config = yaml.safe_load(f)
 
     config = _resolve_env_vars(full_config.get("lmetl", {}))
+    if genre:
+        config.setdefault("extraction", {})["genre"] = genre
     _load_genre(config, path.parent)
     return config
